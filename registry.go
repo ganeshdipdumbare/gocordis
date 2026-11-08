@@ -31,12 +31,17 @@ type RegistryService struct {
 	implUID  int64
 }
 
-// Plugin mounts a plugin instance under the context.
+// Plugin mounts a plugin under the registry's root context.
 func (r *RegistryService) Plugin(p *Plugin, config any) *Fiber {
+	return r.PluginAt(r.ctx, p, config)
+}
+
+// PluginAt mounts a plugin under parent, so the fiber inherits parent's
+// isolation, interception, and lifecycle ownership.
+func (r *RegistryService) PluginAt(parent *Context, p *Plugin, config any) *Fiber {
 	if p == nil || p.Apply == nil {
 		panic("cordis: plugin has no Apply function")
 	}
-	parent := r.ctx
 	parent.fiber.assertUsable()
 
 	rt := r.runtime(p)
@@ -80,7 +85,7 @@ func (r *RegistryService) Plugin(p *Plugin, config any) *Fiber {
 	}
 
 	parent.events.Emit("internal/plugin", f)
-	r.ctx.engine.run(f.refresh)
+	parent.engine.run(f.refresh)
 	return f
 }
 

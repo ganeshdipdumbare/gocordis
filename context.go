@@ -179,7 +179,7 @@ func (c *Context) Dispose() {
 
 // Plugin mounts a plugin under this context.
 func (c *Context) Plugin(p *Plugin, config any) *Fiber {
-	return c.registry.Plugin(p, config)
+	return c.registry.PluginAt(c, p, config)
 }
 
 // Use is the paper's name for mounting a component.

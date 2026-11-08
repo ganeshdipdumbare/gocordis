@@ -263,7 +263,12 @@ func (i *Include) atomicWrite(data []byte) error {
 	if err := temp.Close(); err != nil {
 		return err
 	}
-	if err := os.Chmod(name, 0o644); err != nil {
+	// Keep the existing file's confidentiality; a new file starts private.
+	mode := os.FileMode(0o600)
+	if info, err := os.Stat(i.path); err == nil {
+		mode = info.Mode().Perm()
+	}
+	if err := os.Chmod(name, mode); err != nil {
 		return err
 	}
 	return os.Rename(name, i.path)
