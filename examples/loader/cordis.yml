@@ -1,0 +1,16 @@
+- id: hello
+  name: greeter
+  config:
+    message: hello from YAML
+- id: skipped
+  name: greeter
+  disabled: !!js "2 > 1"
+  config:
+    message: never mounted
+- id: group
+  group: true
+  config:
+    - id: nested
+      name: greeter
+      config:
+        message: hello from a nested group

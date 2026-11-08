@@ -1,0 +1,12 @@
+# build output
+/bin/
+gocordis
+*.test
+*.out
+
+# editor and OS
+.DS_Store
+
+# local secrets
+.env
+.env.*
