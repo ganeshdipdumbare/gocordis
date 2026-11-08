@@ -31,6 +31,7 @@ root.Plugin(&cordis.Plugin{
 | `fs` | recursive watcher, glob filters, debounce |
 | `hmr` | config-level reload callbacks |
 | `pkgmanager` | `go get` / `go mod tidy` adapter |
+| `plugin/wasm` | Go `wasip1` components via wazero, JSON-free host ABI, memory/time limits, watch reload |
 | `timer` | timeout, interval, debounce, throttle as effects |
 | `loggerconsole` | console exporter |
 
@@ -60,11 +61,43 @@ go test ./...
 go test -race ./...
 go run ./examples/counter
 cd examples/loader && go run .
+GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o examples/wasm/plugin.wasm ./examples/wasm/guest
+go run ./examples/wasm
 ```
 
 Use `go fmt ./...`, not the system `gofmt`: the Homebrew symlink on this
 machine is Go 1.26 and cannot parse generic methods. The `go` binary switches
 to 1.27 through `GOTOOLCHAIN=auto` and the `go` directive in `go.mod`.
+
+## WASM components
+
+`plugin/wasm` mounts a Go WebAssembly reactor as an ordinary cordis plugin.
+Build the guest with the Go toolchain:
+
+```sh
+GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o plugin.wasm ./guest
+```
+
+Guest ABI:
+
+| Direction | Symbol | Meaning |
+|---|---|---|
+| host import | `cordis.log(level, ptr, len)` | 0 error, 1 warn, 2 info, 3 debug |
+| host import | `cordis.subscribe(ptr, len)` | receive the named cordis event |
+| host import | `cordis.emit(namePtr, nameLen, payloadPtr, payloadLen)` | emit a cordis event |
+| guest export | `cordis_alloc(size) uint32` | allocate a guest buffer |
+| guest export | `cordis_apply(configPtr, configLen) uint32` | run once per mount, 0 = ok |
+| guest export | `cordis_event(namePtr, nameLen, payloadPtr, payloadLen)` | receive a subscribed event |
+| guest export | `cordis_dispose()` | run before the module closes |
+
+`gocordis/plugin/wasm/guest` supplies the imports and buffer helpers for Go
+guests. The host gives the module no filesystem, network, environment, stdin or
+stdout. Guest memory defaults to 128 MiB and each call has a 5 s timeout
+(`memoryPages`, `timeout` in the component config). Config fields are `path`,
+`watch`, `settings`, `timeout` and `memoryPages`; `watch: true` rebuilds the
+instance through `fiber.Update` when the `.wasm` file changes. That is the
+unload/reload story `plugin` cannot provide; it is still a WASM guest contract,
+not native Go plugin reload.
 
 ## Deviations from Cordis
 
@@ -84,3 +117,6 @@ to 1.27 through `GOTOOLCHAIN=auto` and the `go` directive in `go.mod`.
   not read from a patch section of the YAML file. Patch overlays are applied at
   read time and are deliberately not written back.
 - No decorators, callable services, `mixin`, or `accessor`.
+- `plugin/wasm` is an additional guest contract built on wazero, not a native
+  Go component. It exposes log/subscribe/emit only; typed services and effects
+  stay on the Go side.

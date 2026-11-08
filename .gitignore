@@ -3,6 +3,7 @@
 gocordis
 *.test
 *.out
+/examples/wasm/plugin.wasm
 
 # editor and OS
 .DS_Store
